@@ -1,52 +1,19 @@
-name: Build Debug APK
-
-on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch: {}
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Locate and unzip project
+- name: Locate and unzip project
         run: |
-          ZIP_FILE=$(find . -maxdepth 2 -iname "*.zip" | head -n1)
+          echo "Zips found in repo:"
+          ls -1 *.zip 2>/dev/null || true
+          ZIP_FILE=$(ls -1 *.zip 2>/dev/null | sort -V | tail -n1)
           if [ -z "$ZIP_FILE" ]; then
-            echo "::error::No .zip file found in the repository root. Upload LudoRoyale-Phase1.zip to the repo root first."
+            echo "::error::No .zip file found in the repository root."
             exit 1
           fi
-          echo "Found zip: $ZIP_FILE"
+          echo "Using newest zip: $ZIP_FILE"
           mkdir -p extracted
           unzip -o "$ZIP_FILE" -d extracted
           PROJECT_DIR=$(find extracted -maxdepth 4 -name "settings.gradle.kts" -exec dirname {} \; | head -n1)
           if [ -z "$PROJECT_DIR" ]; then
-            echo "::error::Could not find settings.gradle.kts after unzipping. Check the zip contents."
+            echo "::error::settings.gradle.kts not found after unzipping."
             exit 1
           fi
           echo "Project dir: $PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.7'
-
-      - name: Build debug APK
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: gradle assembleDebug --stacktrace
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: LudoRoyale-debug-apk
-          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
